@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
   ScrollView,
+  Switch,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRoutines } from "../context/RoutineContext";
@@ -24,8 +25,16 @@ export default function AddRoutineScreen({ navigation, route }: any) {
   const [name, setName] = useState("");
   const [muscleGroup, setMuscleGroup] = useState("");
   const [durationString, setDurationString] = useState("");
+  const [featured, setFeatured] = useState(false);
 
-  // Si existe un id, buscamos la rutina y llenamos los inputs
+  // Estados de validación de errores
+  const [errors, setErrors] = useState<{
+    name?: string;
+    muscleGroup?: string;
+    duration?: string;
+  }>({});
+
+  // Cargar datos al editar
   useEffect(() => {
     if (idToEdit) {
       const routineFound = routines.find((routine) => routine.id === idToEdit);
@@ -34,45 +43,70 @@ export default function AddRoutineScreen({ navigation, route }: any) {
         setName(routineFound.name);
         setMuscleGroup(routineFound.muscleGroup);
         setDurationString(routineFound.duration.toString());
+        setFeatured(Boolean(routineFound.featured));
       }
     }
   }, [idToEdit]);
 
-  // Guardar o actualizar
-  const handleSave = () => {
-    // Validar campos vacíos
-    if (!name || !muscleGroup || !durationString) {
-      Alert.alert("Campos requeridos", "Por favor completa todos los datos para continuar.");
-      return;
+  // Función de validación exhaustiva
+  const validateForm = (): boolean => {
+    const newErrors: { name?: string; muscleGroup?: string; duration?: string } = {};
+
+    // 1. Validar nombre obligatorio
+    if (!name.trim()) {
+      newErrors.name = "El nombre de la rutina es obligatorio.";
     }
 
-    // Convertir duración a número
+    // 2. Validar grupo muscular obligatorio
+    if (!muscleGroup.trim()) {
+      newErrors.muscleGroup = "El grupo muscular es obligatorio.";
+    }
+
+    // 3. Validar duración numérica entre 10 y 180 minutos
+    if (!durationString.trim()) {
+      newErrors.duration = "La duración es obligatoria.";
+    } else {
+      const durationNum = Number(durationString);
+      if (isNaN(durationNum)) {
+        newErrors.duration = "La duración debe ser un número válido.";
+      } else if (durationNum < 10 || durationNum > 180) {
+        newErrors.duration = "La duración debe estar entre 10 y 180 minutos.";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Guardar o actualizar rutina
+  const handleSave = () => {
+    if (!validateForm()) {
+      Alert.alert(
+        "Formulario no válido",
+        "Por favor corriga los errores marcados antes de continuar."
+      );
+      return; // Importante: NO se regresa a la lista mientras existan errores
+    }
+
     const durationNumber = parseFloat(durationString);
 
-    // Validar que sea número
-    if (isNaN(durationNumber) || durationNumber <= 0) {
-      Alert.alert("Duración no válida", "La duración debe ser un número mayor a 0.");
-      return;
-    }
-
-    // Si hay id -> actualizar
     if (idToEdit) {
       updateRoutine(idToEdit, {
-        name,
-        muscleGroup,
+        name: name.trim(),
+        muscleGroup: muscleGroup.trim(),
         duration: durationNumber,
+        featured,
       });
-    }
-    // Si no hay id -> crear
-    else {
+    } else {
       addRoutine({
-        name,
-        muscleGroup,
+        name: name.trim(),
+        muscleGroup: muscleGroup.trim(),
         duration: durationNumber,
+        featured,
       });
     }
 
-    // Regresar a la pantalla anterior
+    // Regresar a la lista solo cuando todo está correcto
     navigation.goBack();
   };
 
@@ -101,36 +135,68 @@ export default function AddRoutineScreen({ navigation, route }: any) {
       <View style={styles.formCard}>
         {/* Campo 1: Nombre */}
         <View style={styles.field}>
-          <Text style={styles.label}>Nombre de la rutina</Text>
-          <View style={styles.inputContainer}>
+          <Text style={styles.label}>
+            Nombre de la rutina <Text style={styles.requiredAsterisk}>*</Text>
+          </Text>
+          <View
+            style={[
+              styles.inputContainer,
+              Boolean(errors.name) && styles.inputContainerError,
+            ]}
+          >
             <View style={styles.inputIconBox}>
               <Ionicons name="barbell-outline" size={18} color={colors.primary} />
             </View>
             <TextInput
               style={styles.input}
               value={name}
-              onChangeText={setName}
+              onChangeText={(text) => {
+                setName(text);
+                if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+              }}
               placeholder="Ej. Hipertrofia Pecho & Tríceps"
               placeholderTextColor={colors.textDisabled}
             />
           </View>
+          {errors.name && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle" size={14} color={colors.danger} />
+              <Text style={styles.errorText}>{errors.name}</Text>
+            </View>
+          )}
         </View>
 
         {/* Campo 2: Grupo Muscular con Chips */}
         <View style={styles.field}>
-          <Text style={styles.label}>Grupo muscular</Text>
-          <View style={styles.inputContainer}>
+          <Text style={styles.label}>
+            Grupo muscular <Text style={styles.requiredAsterisk}>*</Text>
+          </Text>
+          <View
+            style={[
+              styles.inputContainer,
+              Boolean(errors.muscleGroup) && styles.inputContainerError,
+            ]}
+          >
             <View style={styles.inputIconBox}>
               <Ionicons name="fitness-outline" size={18} color={colors.primary} />
             </View>
             <TextInput
               style={styles.input}
               value={muscleGroup}
-              onChangeText={setMuscleGroup}
+              onChangeText={(text) => {
+                setMuscleGroup(text);
+                if (errors.muscleGroup) setErrors((prev) => ({ ...prev, muscleGroup: undefined }));
+              }}
               placeholder="Ej. Piernas / Glúteos"
               placeholderTextColor={colors.textDisabled}
             />
           </View>
+          {errors.muscleGroup && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle" size={14} color={colors.danger} />
+              <Text style={styles.errorText}>{errors.muscleGroup}</Text>
+            </View>
+          )}
 
           {/* Chips de selección rápida */}
           <View style={styles.chipsRow}>
@@ -141,7 +207,11 @@ export default function AddRoutineScreen({ navigation, route }: any) {
                   key={shortcut}
                   style={[styles.chip, isSelected && styles.chipSelected]}
                   activeOpacity={0.7}
-                  onPress={() => setMuscleGroup(shortcut)}
+                  onPress={() => {
+                    setMuscleGroup(shortcut);
+                    if (errors.muscleGroup)
+                      setErrors((prev) => ({ ...prev, muscleGroup: undefined }));
+                  }}
                 >
                   <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
                     {shortcut}
@@ -152,23 +222,60 @@ export default function AddRoutineScreen({ navigation, route }: any) {
           </View>
         </View>
 
-        {/* Campo 3: Duración */}
-        <View style={[styles.field, styles.lastField]}>
-          <Text style={styles.label}>Duración estimada (minutos)</Text>
-          <View style={styles.inputContainer}>
+        {/* Campo 3: Duración (10 a 180 min) */}
+        <View style={styles.field}>
+          <Text style={styles.label}>
+            Duración estimada (10 - 180 min) <Text style={styles.requiredAsterisk}>*</Text>
+          </Text>
+          <View
+            style={[
+              styles.inputContainer,
+              Boolean(errors.duration) && styles.inputContainerError,
+            ]}
+          >
             <View style={styles.inputIconBox}>
               <Ionicons name="time-outline" size={18} color={colors.primary} />
             </View>
             <TextInput
               style={styles.input}
               value={durationString}
-              onChangeText={setDurationString}
+              onChangeText={(text) => {
+                setDurationString(text);
+                if (errors.duration) setErrors((prev) => ({ ...prev, duration: undefined }));
+              }}
               keyboardType="numeric"
               placeholder="Ej. 45"
               placeholderTextColor={colors.textDisabled}
             />
             <Text style={styles.inputUnit}>min</Text>
           </View>
+          {errors.duration && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle" size={14} color={colors.danger} />
+              <Text style={styles.errorText}>{errors.duration}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Campo 4: Destacar Rutina (Única rutina destacada) */}
+        <View style={styles.featuredToggleRow}>
+          <View style={styles.featuredToggleInfo}>
+            <View style={styles.starIconBox}>
+              <Ionicons name="star" size={18} color="#FFB300" />
+            </View>
+            <View style={styles.featuredToggleCopy}>
+              <Text style={styles.featuredToggleTitle}>Marcar como Destacada</Text>
+              <Text style={styles.featuredToggleSub}>
+                Reemplazará a cualquier otra rutina destacada actual.
+              </Text>
+            </View>
+          </View>
+          <Switch
+            value={featured}
+            onValueChange={setFeatured}
+            trackColor={{ false: colors.border, true: "rgba(255, 179, 0, 0.4)" }}
+            thumbColor={featured ? "#FFB300" : colors.textMuted}
+          />
         </View>
       </View>
 
@@ -247,10 +354,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   field: {
-    marginBottom: 20,
-  },
-  lastField: {
-    marginBottom: 0,
+    marginBottom: 18,
   },
   label: {
     color: colors.textPrimary,
@@ -258,6 +362,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 8,
     letterSpacing: 0.2,
+  },
+  requiredAsterisk: {
+    color: colors.danger,
+    fontWeight: "800",
   },
   inputContainer: {
     minHeight: 52,
@@ -268,6 +376,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
+  },
+  inputContainerError: {
+    borderColor: colors.danger,
+    backgroundColor: "rgba(255, 59, 48, 0.08)",
   },
   inputIconBox: {
     width: 32,
@@ -289,6 +401,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     marginRight: 4,
+  },
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: "600",
   },
   chipsRow: {
     flexDirection: "row",
@@ -317,6 +440,45 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: "800",
   },
+  featuredToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: "rgba(255, 179, 0, 0.3)",
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 6,
+  },
+  featuredToggleInfo: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  starIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 179, 0, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  featuredToggleCopy: {
+    flex: 1,
+  },
+  featuredToggleTitle: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  featuredToggleSub: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
   saveButton: {
     minHeight: 54,
     flexDirection: "row",
@@ -340,4 +502,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 });
+
 

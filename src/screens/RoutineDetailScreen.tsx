@@ -5,13 +5,13 @@ import { useRoutines } from "../context/RoutineContext";
 import { colors } from "../theme/colors";
 
 export default function RoutineDetailScreen({ route }: any) {
-  const { routines } = useRoutines();
+  const { routines, toggleFeatured } = useRoutines();
 
   // Recibimos el id enviado desde RoutineListScreen
   const idToView = route.params?.id;
 
   // Buscamos la rutina correspondiente
-  const routine = routines.find((routine) => routine.id === idToView);
+  const routine = routines.find((r) => r.id === idToView);
 
   // Por si no existe la rutina
   if (!routine) {
@@ -30,7 +30,7 @@ export default function RoutineDetailScreen({ route }: any) {
     );
   }
 
-  // Convertimos la fecha para mostrarla mejor
+  const isFeatured = Boolean(routine.featured);
   const createdDate = new Date(routine.createdAt).toLocaleDateString();
 
   return (
@@ -43,9 +43,19 @@ export default function RoutineDetailScreen({ route }: any) {
           imageStyle={styles.heroImage}
         >
           <View style={styles.heroOverlay}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>ENTRENAMIENTO</Text>
+            <View style={styles.heroHeaderRow}>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>ENTRENAMIENTO</Text>
+              </View>
+
+              {isFeatured && (
+                <View style={styles.featuredBadge}>
+                  <Ionicons name="star" size={12} color="#FFB300" />
+                  <Text style={styles.featuredBadgeText}>DESTACADA</Text>
+                </View>
+              )}
             </View>
+
             <Text style={styles.heroTitle}>{routine.name}</Text>
             <View style={styles.heroMetaRow}>
               <Ionicons name="flash" size={14} color={colors.primary} />
@@ -93,11 +103,17 @@ export default function RoutineDetailScreen({ route }: any) {
 
           <View style={styles.infoRow}>
             <View style={styles.infoIconBox}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={colors.success} />
+              <Ionicons
+                name={isFeatured ? "star" : "star-outline"}
+                size={20}
+                color={isFeatured ? "#FFB300" : colors.textSecondary}
+              />
             </View>
             <View style={styles.infoCopy}>
-              <Text style={styles.infoLabel}>Estado de rutina</Text>
-              <Text style={[styles.infoValue, { color: colors.success }]}>Activa y optimizada</Text>
+              <Text style={styles.infoLabel}>Destacado en Resumen</Text>
+              <Text style={[styles.infoValue, { color: isFeatured ? "#FFB300" : colors.textSecondary }]}>
+                {isFeatured ? "Sí, esta rutina está destacada" : "No está destacada"}
+              </Text>
             </View>
           </View>
         </View>
@@ -144,19 +160,41 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "rgba(10, 13, 20, 0.72)",
   },
+  heroHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
   badge: {
     alignSelf: "flex-start",
     backgroundColor: colors.primary,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    marginBottom: 8,
   },
   badgeText: {
     color: "#ffffff",
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 1.2,
+  },
+  featuredBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 179, 0, 0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 179, 0, 0.4)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  featuredBadgeText: {
+    color: "#FFB300",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
   },
   heroTitle: {
     color: colors.textPrimary,
